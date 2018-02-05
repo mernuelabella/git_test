@@ -1,0 +1,205 @@
+<div class="sixteen columns clearfix collection_nav">
+  <h1 class="collection_title">
+    {{ page.title }}
+  </h1>
+</div>
+
+<div class="sixteen columns page">
+	
+	<div class="mapWrapper">
+	  <input type="text" id="map-search-box" placeholder="Enter Country, City or Store name" />
+	  <div class="store-list-container">
+	  	<ul class="store-list" id="store-error">
+	  	</ul>
+	  </div>
+	  <div id="map"></div>
+	</div>
+
+  {% include 'page-multi-column', content: page.content %}
+</div>
+
+<script type="text/javascript">
+
+$(function(){
+
+	var map = new GMaps({
+	    div: '#map',
+	    lat: -12.043333,
+  		lng: -77.028333,
+  		zoom: 12,
+	    //styles: [{"stylers":[{"saturation":-100}]},{"featureType":"water","elementType":"geometry.fill","stylers":[{"color":"#0099dd"}]},{"elementType":"labels","stylers":[{"visibility":"off"}]},{"featureType":"poi.park","elementType":"geometry.fill","stylers":[{"color":"#aadd55"}]},{"featureType":"road.highway","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"road.arterial","elementType":"labels.text","stylers":[{"visibility":"on"}]},{"featureType":"road.local","elementType":"labels.text","stylers":[{"visibility":"on"}]},{}]
+	});
+
+	var list = {};
+
+	var requestStores = function () {
+
+		$.ajax({
+			url: "{{ 'stores.json' | asset_url }}",
+			method: "GET",
+			dataType: "JSON",
+		}).done(function (result) {
+
+			if(!result)
+				list = {};
+			else
+				list = result;
+
+			renderAllinMaps(searchStore(list));
+			renderStores(searchStore(list));
+		});
+	};
+
+	var searchStore = function (list, keyword) {
+
+		if(_.isUndefined(keyword) || keyword == '') {
+			var result = _.map(list, function(info, key) {
+				var obj = {};
+				obj.name = info.name;
+				obj.info = info;
+				return obj;
+			});
+			return result;
+		}
+			
+
+		keyword = keyword.toString().toLowerCase();
+
+		var result = _.map(list, function(info, key) {
+
+			var obj = {};
+			obj.name = info.name;
+			obj.info = info;
+			
+			if(info.address.toString().toLowerCase().indexOf(keyword) != -1) {
+				return obj;
+			}
+
+			if(info.country.toString().toLowerCase().indexOf(keyword) != -1) {
+				return obj;
+			}
+
+			if(info.state.toString().toLowerCase().indexOf(keyword) != -1) {
+				return obj;
+			}
+
+			if(key.toString().toLowerCase().indexOf(keyword) != -1) {
+				return obj;
+			}
+          
+          	if(info.name.toString().toLowerCase().indexOf(keyword) != -1) {
+				return obj;
+			}
+
+			return false;
+
+		});
+
+		var filterResult = _.filter(result, function (r) { return r; });
+
+		if(_.isEmpty(filterResult)) {
+			/*return searchStore(list);*/
+			document.getElementById("store-error").innerHTML = "<div class='ermsgStore'>Sorry, We currently have no retailers in that location</div>";
+		}
+
+		return filterResult;
+	};
+
+
+	var selectStore = function (data) {
+		locateMap(data);
+		map.setZoom(16);
+	};
+
+	var locateMap = function (place) {
+
+		if(_.isUndefined(place.info.address)) {
+			return false;
+		}
+
+		GMaps.geocode({
+		  address: place.info.address.toString(),
+		  callback: function(results, status) {
+		    if (status == 'OK') {
+		      var latlng = results[0].geometry.location;
+		      map.setCenter(latlng.lat(), latlng.lng());
+		      map.addMarker({
+		        lat: latlng.lat(),
+		        lng: latlng.lng(),
+		        icon: 'http://icons.iconarchive.com/icons/designcontest/ecommerce-business/48/maps-icon.png',
+		        infoWindow: {
+  					content: '<p class="map-store-name">' + place.name + '</p><p class="map-store-address">' + place.info.address + '</p>'
+				}
+		      });
+		    }
+		  }
+		});
+
+	};
+
+	var renderStores = function (list) {
+
+		if(_.isEmpty(list))
+			return [];
+      
+      	list = _.sortBy(list, 'name');
+
+		var mapstores = _.map(list, function (value) {
+			return '<li><a info="' + encodeURIComponent(JSON.stringify(value)) + '" class="store-list-item-map" href="javascript:void(0);"><div class="list-store-name">' + value.name + '</div><div class="list-store-phone">Phone: ' + value.info.phone + '</div><div class="list-store-address">Address: ' + value.info.address + '</div><div class="list-store-website">Website: ' + value.info.website + '</div></a></li>';
+		});
+
+		var tmp = mapstores.join('');
+		$('.store-list').empty().html(tmp);
+
+
+		$('.store-list-item-map').unbind().on('click', function (e) {
+			var info = $(this).attr('info');
+			info = JSON.parse(decodeURIComponent(info));
+			selectStore(info);
+		});
+
+	};
+
+
+	var renderAllinMaps = function (list) {
+
+		map.removeMarkers()
+		_.each(list, function (place, key) {
+			GMaps.geocode({
+			  address: place.info.address.toString(),
+			  callback: function(results, status) {
+			    if (status == 'OK') {
+			      var latlng = results[0].geometry.location;
+			      map.setCenter(latlng.lat(), latlng.lng());
+			      map.addMarker({
+			        lat: latlng.lat(),
+			        lng: latlng.lng(),
+			        icon: 'http://icons.iconarchive.com/icons/designcontest/ecommerce-business/48/maps-icon.png',
+			        infoWindow: {
+	  					content: '<p class="map-store-name">' + place.name + '</p><p class="map-store-address">' + place.info.address + '</p>'
+					}
+			      });
+			      if(key == 0) {
+			      	map.setCenter({lat: latlng.lat(), lng: latlng.lng()});
+			      }
+			    }
+			  }
+			});
+		});
+
+	}
+
+	$('#map-search-box').unbind().on('keyup', function (e) {
+		var search = searchStore(list, $(this).val().toString().trim())
+		renderStores(search);
+		e.preventDefault();
+	});
+
+	//onload
+	requestStores();
+
+
+});
+
+</script>
+

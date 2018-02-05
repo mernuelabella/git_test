@@ -1,0 +1,12 @@
+--- 
+:api_key: db49da8b3292ea7412e207d98ddb441c
+:password: 69a6b83347480d4690dd6b09a7cb083d
+:store: goo-goobaby.myshopify.com
+:theme_id: 
+:whitelist_files: 
+- layout/
+- assets/
+- config/
+- snippets/
+- templates/
+- locales/
